@@ -1,0 +1,40 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]  # Set your default branch here
+  workflow_dispatch:    # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '9.0.x'
+          include-prerelease: true
+
+      - name: Publish app
+        run: dotnet publish -c Release -o release --nologo
+
+      # Changes the base-tag in index.html from '/' to the repository name
+      # This is needed for GitHub Pages deployment
+      - name: Change base href
+        run: |
+          index_path="release/wwwroot/index.html"
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          sed -i "s/<base href=\"\/\"/<base href=\"\/$repository_name\/\"/g" $index_path
+
+      # Add .nojekyll file to tell GitHub pages not to use Jekyll
+      - name: Add .nojekyll file
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: release/wwwroot
+          force_orphan: true
